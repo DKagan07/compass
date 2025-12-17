@@ -87,7 +87,20 @@ impl App {
 
     fn build_list_widget(&self) -> List<'static> {
         let title = Line::from(" Directory ").bold();
-        let instructions = Line::from(vec![" Q:".into(), "Quit ".blue().bold()]);
+        let instructions = Line::from(vec![
+            " Q:".into(),
+            "Quit |".blue().bold(),
+            " ↑/k: ".into(),
+            "Up |".blue().bold(),
+            " ←/h: ".into(),
+            "Left |".blue().bold(),
+            " →/l: ".into(),
+            "Right |".blue().bold(),
+            " ↓/j: ".into(),
+            "Down |".blue().bold(),
+            " Enter: ".into(),
+            "Go to directory ".blue().bold(),
+        ]);
         let block = Block::bordered()
             .title(title)
             .title_bottom(instructions.centered())
@@ -127,10 +140,6 @@ impl App {
         dir_entries
     }
 
-    // fn update_current_path(&mut self) -> String {
-    //     String::from("")
-    // }
-
     fn handle_events(&mut self) -> io::Result<()> {
         match event::read()? {
             Event::Key(key_event) if key_event.kind == KeyEventKind::Press => {
@@ -147,7 +156,8 @@ impl App {
             KeyCode::Char('j') | KeyCode::Down => self.move_down(),
             KeyCode::Char('h') | KeyCode::Left => self.open_previous_dir(),
             KeyCode::Char('k') | KeyCode::Up => self.move_up(),
-            KeyCode::Char('l') | KeyCode::Right | KeyCode::Enter => self.open_next_dir(),
+            KeyCode::Char('l') | KeyCode::Right => self.open_next_dir(),
+            KeyCode::Enter => self.take_to_path(),
             _ => {}
         }
     }
@@ -187,6 +197,14 @@ impl App {
         self.current_path = p;
         self.update_dir_list();
         self.list_state.select_first();
+    }
+
+    // TODO: This needs work -- not working as intended
+    fn take_to_path(&mut self) {
+        let p = Path::new(&self.current_path);
+        let _ = env::set_current_dir(p);
+        println!("current working directory: {}", p.display());
+        self.exit();
     }
 
     fn exit(&mut self) {
