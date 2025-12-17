@@ -93,7 +93,17 @@ impl App {
             .title_bottom(instructions.centered())
             .border_set(border::THICK);
 
-        let better_dir_list: Vec<String> = self.list.iter().map(|e| e.name.clone()).collect();
+        let better_dir_list: Vec<Line> = self
+            .list
+            .iter()
+            .map(|e| {
+                if e.is_dir {
+                    Line::from(e.name.clone()).blue().bold()
+                } else {
+                    Line::from(e.name.clone().white().italic())
+                }
+            })
+            .collect();
 
         List::new(better_dir_list)
             .block(block)
