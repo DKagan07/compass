@@ -1,28 +1,26 @@
-use std::{env, fs, io};
+use std::env;
+use std::path::{self, Path};
+use std::{fs, io};
 
 use crossterm::event;
 use crossterm::event::{
     KeyCode, {Event, KeyEvent, KeyEventKind},
 };
-use ratatui::style::Style;
-// use ratatui::widgets::StatefulWidget;
+
 use ratatui::{
-    DefaultTerminal,
-    Frame,
-    // buffer::Buffer,
-    // layout::Rect,
-    style::Stylize,
+    DefaultTerminal, Frame,
+    style::{Style, Stylize},
     symbols::border,
     text::Line,
-    widgets::{Block, HighlightSpacing, List, ListState /*Widget*/},
+    widgets::{Block, HighlightSpacing, List, ListState},
 };
 
 // App defines the app state
 #[derive(Debug)]
 struct App {
+    list: Vec<DirEntryInfo>,
     list_state: ListState,
     current_path: String,
-    dir_list: Vec<DirEntryInfo>,
     exit: bool, // if multiple modes or main states, might need an enum for this
 }
 
@@ -60,10 +58,12 @@ impl Default for App {
         let mut state = ListState::default();
         state.select_first();
 
+        let starting_list = list_current_directory(&path);
+
         Self {
+            list: starting_list,
             list_state: state,
             current_path: path,
-            dir_list: vec![],
             exit: false,
         }
     }
@@ -93,8 +93,7 @@ impl App {
             .title_bottom(instructions.centered())
             .border_set(border::THICK);
 
-        let dir_entries = list_current_directory(self.current_path.as_str());
-        let better_dir_list: Vec<String> = dir_entries.iter().map(|e| e.name.clone()).collect();
+        let better_dir_list: Vec<String> = self.list.iter().map(|e| e.name.clone()).collect();
 
         List::new(better_dir_list)
             .block(block)
@@ -104,6 +103,23 @@ impl App {
             .repeat_highlight_symbol(true)
             .highlight_spacing(HighlightSpacing::Always)
     }
+
+    fn update_dir_list(&mut self) -> Vec<DirEntryInfo> {
+        let dir_entries = list_current_directory(&self.current_path);
+        self.list = dir_entries
+            .iter()
+            .map(|e| DirEntryInfo {
+                name: e.name.clone(),
+                is_dir: e.is_dir,
+            })
+            .collect();
+
+        dir_entries
+    }
+
+    // fn update_current_path(&mut self) -> String {
+    //     String::from("")
+    // }
 
     fn handle_events(&mut self) -> io::Result<()> {
         match event::read()? {
@@ -118,12 +134,49 @@ impl App {
     fn handle_key_event(&mut self, key_event: KeyEvent) {
         match key_event.code {
             KeyCode::Char('q') | KeyCode::Esc => self.exit(),
-            KeyCode::Char('j') | KeyCode::Down => {}
-            KeyCode::Char('h') | KeyCode::Left => {}
-            KeyCode::Char('k') | KeyCode::Up => {}
-            KeyCode::Char('l') | KeyCode::Right => {}
+            KeyCode::Char('j') | KeyCode::Down => self.move_down(),
+            KeyCode::Char('h') | KeyCode::Left => self.open_previous_dir(),
+            KeyCode::Char('k') | KeyCode::Up => self.move_up(),
+            KeyCode::Char('l') | KeyCode::Right | KeyCode::Enter => self.open_next_dir(),
             _ => {}
         }
+    }
+
+    fn move_down(&mut self) {
+        self.list_state.select_next();
+    }
+
+    fn move_up(&mut self) {
+        self.list_state.select_previous();
+    }
+
+    fn open_next_dir(&mut self) {
+        let i = match self.list_state.selected() {
+            Some(i) => i,
+            None => 0,
+        };
+
+        // let updated_path = format!("{}/{}", self.path, self.list[i]);
+        let new = Path::new(self.list[i].name.as_str());
+        let path_curr = Path::new(self.current_path.as_str());
+        let path_new_path = path_curr.join(new);
+
+        self.current_path = path_new_path.to_string_lossy().to_string();
+        self.update_dir_list();
+        self.list_state.select_first();
+    }
+
+    fn open_previous_dir(&mut self) {
+        let mut path_iter = self.current_path.split(path::MAIN_SEPARATOR);
+        path_iter.next_back();
+
+        let p: String = path_iter
+            .map(|s| s.to_string() + String::from(path::MAIN_SEPARATOR).as_str())
+            .collect();
+
+        self.current_path = p;
+        self.update_dir_list();
+        self.list_state.select_first();
     }
 
     fn exit(&mut self) {
@@ -136,30 +189,7 @@ fn main() -> io::Result<()> {
     let app_result = App::default().run(&mut terminal);
     ratatui::restore();
 
-    print_entries();
     app_result
-}
-
-fn print_entries() {
-    let mut path = match env::args().nth(1) {
-        Some(path) => path,
-        None => String::from(""),
-    };
-
-    if path.eq("") {
-        let current_dir_result = match env::current_dir() {
-            Ok(cur) => cur,
-            Err(err) => panic!("unable to get current directory: {err:?}"),
-        };
-        let current_dir_buf = current_dir_result.to_string_lossy().to_string();
-        path = String::from(current_dir_buf.trim_ascii_end().trim_ascii_start());
-    }
-
-    let entries = list_current_directory(&path);
-
-    for entry in entries {
-        println!("{}", entry.name);
-    }
 }
 
 fn list_current_directory(path: &str) -> Vec<DirEntryInfo> {
