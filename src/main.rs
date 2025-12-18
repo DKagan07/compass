@@ -230,7 +230,7 @@ fn list_current_directory(path: &str) -> Vec<DirEntryInfo> {
     // for now, it's okay to ignore the errors.
     // TODO: when the time is right, do not ignore these errors and display something else that
     // would be better
-    let dir_entries: Vec<DirEntryInfo> = dir
+    let mut dir_entries: Vec<DirEntryInfo> = dir
         .filter_map(|entry| entry.ok())
         .map(|e| {
             let is_dir_bool = match e.file_type() {
@@ -244,6 +244,8 @@ fn list_current_directory(path: &str) -> Vec<DirEntryInfo> {
             )
         })
         .collect();
+
+    dir_entries.sort_by_key(|en| (!en.name.starts_with("."), en.name.to_lowercase()));
 
     return dir_entries;
 }
