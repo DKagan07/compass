@@ -86,7 +86,7 @@ impl App {
     }
 
     fn build_list_widget(&self) -> List<'static> {
-        let title = Line::from(" Directory ").bold();
+        let title = Line::from(format!(" Directory {}", self.current_path)).bold();
         let instructions = Line::from(vec![
             " Q:".into(),
             "Quit |".blue().bold(),
